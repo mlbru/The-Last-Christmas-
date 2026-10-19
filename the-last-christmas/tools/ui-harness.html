@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Last Christmas: UI harness (no Phaser)</title>
+<link rel="stylesheet" href="../src/styles/ui.css">
+<style>#game canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100%,calc((100vh - var(--dock-h)) * 16 / 9));aspect-ratio:16/9;background:#070a1a}</style>
+</head><body>
+<div id="app"><div id="stage"><div id="game"><canvas id="cv" width="480" height="270"></canvas></div>
+<div id="objective" class="hud" hidden></div><div id="rail" class="hud" hidden></div><div id="bubble" hidden></div><div id="toasts"></div><div id="picker" hidden></div></div>
+<div id="dock"></div><div id="overlay" hidden></div></div>
+<script type="module" src="./ui-harness.js"></script></body></html>

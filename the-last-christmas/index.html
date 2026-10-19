@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Last Christmas</title>
+    <meta name="description" content="A narrative detective game about a town that remembered the wrong Christmas." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230f1632'/%3E%3Cpath d='M8 1l2 5 5 .5-4 3 1.5 5L8 12l-4.5 2.5L5 9.500 1 6.500 6 6z' fill='%23e8c050'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <div id="game"></div>
+        <div id="objective" class="hud" hidden></div>
+        <div id="rail" class="hud" hidden></div>
+        <div id="bubble" hidden></div>
+        <div id="toasts" aria-live="polite"></div>
+        <div id="picker" hidden></div>
+      </div>
+      <div id="dock"></div>
+      <div id="overlay" hidden></div>
+    </div>
+    <noscript>The Last Christmas needs JavaScript.</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "the-last-christmas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A narrative 2D detective game for the browser (Phaser 3 + Vite).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
