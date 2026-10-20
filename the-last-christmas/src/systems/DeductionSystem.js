@@ -7,7 +7,7 @@
 //     can be reached through several pairs.           6. The UI explains why something is unavailable.
 
 import { EVIDENCE } from '../data/evidence.js';
-import { RELATIONS, NEAR_MISSES, MISSING_REASONS, CONFRONTATIONS, CORE_RELATIONS } from '../data/deductions.js';
+import { RELATIONS, CONFRONTATIONS, CORE_RELATIONS } from '../data/deductions.js';
 import { recompute } from '../game/StoryLogic.js';
 import { collect } from './EvidenceSystem.js';
 
@@ -21,7 +21,7 @@ const UNSUPPORTED = [
 
 /**
  * Test a link between two evidence cards.
- * status: 'confirmed' | 'known' | 'near' | 'unsupported' | 'invalid'
+ * status: 'confirmed' | 'known' | 'unsupported' | 'invalid'
  */
 export function testLink(world, a, b) {
   if (a === b || !EVIDENCE[a] || !EVIDENCE[b]) {
@@ -41,40 +41,49 @@ export function testLink(world, a, b) {
     const flags = recompute(world);
     return {
       status: 'confirmed', relation: rel.id, title: rel.label, message: rel.conclusion,
-      unlocks: rel.unlocks, flags: [...rel.sets, ...flags],
-      reconstructed: world.hasFlag('committee_history_reconstructed'),
+      flags: [...rel.sets, ...flags],
+      reconstructed: flags.includes('committee_history_reconstructed'),   // only the link that completes it
     };
   }
-
-  const near = NEAR_MISSES.find((n) => samePair(n.pair, a, b));
-  if (near) return { status: 'near', message: near.message };
 
   // Deterministic variety, so the same wrong pair always gives the same sentence.
   const idx = (a.length * 7 + b.length * 3 + (a.charCodeAt(4) || 0) + (b.charCodeAt(4) || 0)) % UNSUPPORTED.length;
   return { status: 'unsupported', message: UNSUPPORTED[idx] };
 }
 
-/** Why a relation cannot be tested yet, or null if the player already holds a testable pair. */
-export function whyNotAvailable(world, relationId) {
-  const r = RELATIONS[relationId];
-  if (!r) throw new Error(`Unknown relation: ${relationId}`);
-  if (world.data.relations.includes(relationId)) return null;
+/** Held cards that complete a pair with `id` for this deduction. */
+function heldPartners(world, r, id) {
   const held = new Set(world.data.evidence);
-  return r.pairs.some(([a, b]) => held.has(a) && held.has(b)) ? null : MISSING_REASONS[relationId];
+  return r.pairs.filter((p) => p.includes(id)).map((p) => (p[0] === id ? p[1] : p[0])).filter((e) => held.has(e));
 }
 
-/** Progressive hint for a relation: 0 = which line, 1 = one card, 2 = both cards. */
-export function relationHint(world, relationId, level = 0) {
-  const r = RELATIONS[relationId];
-  if (!r) throw new Error(`Unknown relation: ${relationId}`);
-  const held = world.data.evidence;
-  const pair = r.pairs.find(([a, b]) => held.includes(a) && held.includes(b)) || r.pairs[0];
-  if (level <= 0) {
-    const lineNames = { A: 'the official history of the fire', B: 'the people who stayed silent', C: 'Rowan and Elias' };
-    return `Think about ${lineNames[r.line]}. Two pieces of evidence there contradict or confirm each other.`;
+/**
+ * Everything the board shows about one card: the deductions it already proves and the open questions
+ * it belongs to. `partners` are the held cards that would answer a question; the UI only reveals them
+ * on request, so the question alone is the hint.
+ */
+export function cardInfo(world, id) {
+  const established = [], open = [];
+  for (const r of Object.values(RELATIONS)) {
+    if (!r.pairs.some((p) => p.includes(id))) continue;
+    if (world.data.relations.includes(r.id)) established.push({ id: r.id, label: r.label, conclusion: r.conclusion });
+    else open.push({ id: r.id, question: r.question, core: r.core, partners: heldPartners(world, r, id) });
   }
-  if (level === 1) return `One of the cards you want is "${EVIDENCE[pair[0]].name}".`;
-  return `Link "${EVIDENCE[pair[0]].name}" with "${EVIDENCE[pair[1]].name}".`;
+  return { evidence: EVIDENCE[id], established, open };
+}
+
+/** Unsolved deductions the player could solve right now, with one pair that does it. */
+export function openLeads(world) {
+  const held = new Set(world.data.evidence);
+  return Object.values(RELATIONS)
+    .filter((r) => !world.data.relations.includes(r.id))
+    .map((r) => ({ id: r.id, question: r.question, core: r.core, pair: r.pairs.find(([a, b]) => held.has(a) && held.has(b)) }))
+    .filter((l) => l.pair);
+}
+
+/** Established deductions, in the order they were made. */
+export function establishedConclusions(world) {
+  return world.data.relations.map((id) => RELATIONS[id]).filter(Boolean);
 }
 
 export function coreProgress(world) {
@@ -94,7 +103,7 @@ export function confrontationLockedReason(world, id) {
   if (!c) throw new Error(`Unknown confrontation: ${id}`);
   if (world.confrontation(id).done) return 'You have already settled this.';
   if (world.data.relations.includes(c.requiresRelation)) return null;
-  return MISSING_REASONS[c.requiresRelation];
+  return `Not yet. First I need to answer this: ${RELATIONS[c.requiresRelation].question}`;
 }
 
 /**

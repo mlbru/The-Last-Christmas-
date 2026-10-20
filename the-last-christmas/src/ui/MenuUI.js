@@ -3,6 +3,7 @@
 import { h, clear } from './dom.js';
 import { LOCATIONS } from '../data/locations.js';
 import { thoroughness } from '../game/StoryLogic.js';
+import { PROLOGUE } from '../data/history2001.js';
 
 const CONTROLS = [
   ['A / D or ← / →', 'Walk'], ['W / S or ↑ / ↓', 'Step toward / away from the camera'], ['E, Space or Enter', 'Interact, continue a conversation'],
@@ -27,7 +28,26 @@ export class MenuUI {
     this.overlay.open({ title: '', content: box, className: 'title-modal', dismissable: false });
   }
 
-  begin() { this.overlay.close(true); this.audio.unlock(); this.ctrl.newGame(); }
+  begin() { this.audio.unlock(); this.prologue(() => { this.overlay.close(true); this.ctrl.newGame(); }); }
+
+  /** Cold open: the 2001 newspaper report, then twenty-five years later. Two pages, skippable. */
+  prologue(done) {
+    const P = PROLOGUE;
+    const paper = h('div', { class: 'menu-box prologue' },
+      h('div', { class: 'paper' },
+        h('div', { class: 'masthead', text: P.masthead }), h('div', { class: 'dateline', text: P.dateline }),
+        h('h2', { text: P.headline }), ...P.paragraphs.map((t) => h('p', { text: t }))),
+      h('div', { class: 'menu-list row' },
+        h('button', { class: 'btn primary', 'data-autofocus': '', onclick: () => later() }, 'Continue'),
+        h('button', { class: 'btn ghost', onclick: () => done() }, 'Skip')));
+    const later = () => {
+      const box = h('div', { class: 'menu-box prologue' },
+        h('div', { class: 'after' }, ...P.after.map((t, i) => h('p', { class: i === 0 ? 'big' : '', text: t }))),
+        h('div', { class: 'menu-list row' }, h('button', { class: 'btn primary', 'data-autofocus': '', onclick: () => done() }, 'Begin')));
+      this.overlay.open({ title: '', content: box, className: 'title-modal', dismissable: false });
+    };
+    this.overlay.open({ title: '', content: paper, className: 'title-modal', dismissable: false });
+  }
 
   doContinue() {
     this.audio.unlock();

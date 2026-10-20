@@ -4,6 +4,18 @@ A story-driven 2D detective game for the browser (Phaser 3 + Vite, JavaScript ES
 You play Rowan Hale, investigating the disappearance of festival organiser Thomas Bell in Bellwether,
 and the twenty-five-year-old story the town tells about the archive fire. About 45 minutes.
 
+## Play it
+
+Download `The-Last-Christmas.html` from the [latest release](https://github.com/mlbru/The-Last-Christmas-/releases/latest) and open it in a browser. It is one self-contained file: no install, no server.
+
+## What's new in 2.0
+
+- Opens with a newspaper report from December 2001, so you know the story the town tells before you start doubting it.
+- The journal has a **Case** tab that strikes out each part of that official story as the evidence contradicts it.
+- A simpler Deduction Board: click any card to read it, see which open questions it belongs to and what it already proves, then link it with another card. A hint button shows which card answers a question.
+- Rooms are drawn at Rowan's scale, with ceilings and a closer camera; objects mentioned in the notes are now in the rooms.
+- Fixes: rooms could not be left after the first door, "null" after speech bubbles, bubbles that lingered after walking away, a square glow around the lit Star, a repeated "history reconstructed" message, and a journal button that left an empty screen.
+
 ## Run it
 
 ```bash

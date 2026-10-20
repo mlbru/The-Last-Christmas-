@@ -12,11 +12,14 @@ import { towerUnlocked } from '../game/StoryLogic.js';
 
 const VIEW_W = 480, VIEW_H = 270;
 const SNOW_COUNT = 70;
+/** Rooms are framed closer than the street and the church so Rowan, not the ceiling, fills the screen. */
+export const INTERIOR_ZOOM = 1.35;
 
 export class LocationScene extends Phaser.Scene {
   constructor() { super('Location'); }
 
-  init(data) { this.entry = data; }
+  // scene.restart() reuses this instance, so per-visit state has to be reset here
+  init(data) { this.entry = data; this._leaving = false; }
 
   create() {
     const app = this.app = this.registry.get('app');
@@ -41,12 +44,13 @@ export class LocationScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setBounds(0, 0, loc.width, VIEW_H);
     cam.setRoundPixels(true);
+    cam.setZoom(loc.kind === 'interior' ? INTERIOR_ZOOM : 1);
 
     // ---- player ---------------------------------------------------------------------------------
     this.state = legalise({ x: entry.x, d: entry.d, facing: entry.facing, moving: false }, c.world, id);
     this.player = this.makeActor('rowan', this.state.x, this.state.d, entry.facing === 'left');
     cam.startFollow(this.player, true, 0.12, 0.12);
-    cam.centerOn(this.player.x, VIEW_H / 2);
+    cam.centerOn(this.player.x, cam.zoom > 1 ? VIEW_H : VIEW_H / 2);
 
     // ---- people -----------------------------------------------------------------------------------
     if (this.cutscene === 'epilogue') {
@@ -109,8 +113,8 @@ export class LocationScene extends Phaser.Scene {
     }
     if (this.locId === 'square') {
       this.litStar = this.add.image(585, 166, 'star_lit').setDepth(16).setVisible(false);
-      this.litGlow = this.add.image(585, 166, 'px').setDepth(61).setVisible(false);
-      this.litGlow.setDisplaySize(120, 120).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.12).setTint(0xffd98a);
+      this.litGlow = this.add.image(585, 166, 'star_glow').setDepth(61).setVisible(false);
+      this.litGlow.setScale(1.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35);
     }
   }
 
@@ -128,7 +132,7 @@ export class LocationScene extends Phaser.Scene {
     this.litStar.setVisible(true).setAlpha(animate ? 0 : 1);
     this.litGlow.setVisible(true);
     if (animate) this.tweens.add({ targets: this.litStar, alpha: 1, duration: 1400 });
-    this.tweens.add({ targets: this.litGlow, alpha: { from: 0.1, to: 0.22 }, yoyo: true, repeat: -1, duration: 1600 });
+    this.tweens.add({ targets: this.litGlow, alpha: { from: 0.28, to: 0.5 }, yoyo: true, repeat: -1, duration: 1600 });
   }
 
   makeMarkers() {

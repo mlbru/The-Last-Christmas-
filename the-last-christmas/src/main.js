@@ -27,8 +27,8 @@ const renderer = {
     const cv = game.canvas, stage = document.getElementById('stage');
     const r = cv.getBoundingClientRect(), s = stage.getBoundingClientRect();
     const k = r.width / 480;
-    const cam = sc.cameras.main;
-    return { x: r.left - s.left + (sc.player.x - cam.scrollX) * k, y: r.top - s.top + (sc.player.y - 52 - cam.scrollY) * k };
+    const cam = sc.cameras.main, view = cam.worldView, z = cam.zoom * k;
+    return { x: r.left - s.left + (sc.player.x - view.x) * z, y: r.top - s.top + (sc.player.y - 52 - view.y) * z };
   },
 };
 

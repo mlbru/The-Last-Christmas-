@@ -9,6 +9,7 @@ export class Bubble {
     ctrl.on('bubble', (p) => this.show(p.lines, p.kind));
     ctrl.on('mode', (m) => { if (m !== 'explore') this.hide(); });
     ctrl.on('location', () => this.hide());
+    ctrl.on('bubbleEnd', () => this.hide());       // Rowan walked away
     root.addEventListener('click', () => this.next());
   }
 
@@ -21,8 +22,8 @@ export class Bubble {
   render() {
     clear(this.root).className = `bubble ${this.kind === 'blocked' ? 'blocked' : ''}`;
     this.root.hidden = false;
-    this.root.append(h('div', { class: 'bubble-text', text: this.lines[this.idx] }),
-      this.idx < this.lines.length - 1 ? h('div', { class: 'bubble-more', text: '▼' }) : null);
+    this.root.append(h('div', { class: 'bubble-text', text: this.lines[this.idx] }));
+    if (this.idx < this.lines.length - 1) this.root.append(h('div', { class: 'bubble-more', text: '▼' }));
     this.place();
     clearTimeout(this.timer);
     const ms = Math.max(2800, this.lines[this.idx].length * 55);

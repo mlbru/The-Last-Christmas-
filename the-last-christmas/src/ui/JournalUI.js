@@ -1,16 +1,20 @@
-// The journal: Evidence, Persons, Conclusions and Hints tabs. Reads state through the journal
-// functions in systems/EvidenceSystem.js, so it only ever shows what the player has found.
+// The journal: Case (what now, and the official 2001 story), Evidence, People and Hints.
+// Reads state through the systems, so it only ever shows what the player has found. Conclusions live
+// on the Deduction Board.
 
 import { h, clear, pixelImg, evidenceIconURL, portraitURL } from './dom.js';
-import { journalEvidence, journalPersons, journalConclusions, evidenceCount, INVESTIGATION_LINES } from '../systems/EvidenceSystem.js';
+import { journalEvidence, journalPersons, evidenceCount } from '../systems/EvidenceSystem.js';
 import { openPuzzles, nextHint, hintsUnlocked } from '../systems/PuzzleSystem.js';
-import { relationHint, coreProgress } from '../systems/DeductionSystem.js';
+import { openLeads } from '../systems/DeductionSystem.js';
+import { EVIDENCE } from '../data/evidence.js';
 import { PUZZLES } from '../data/puzzles.js';
+import { LOCATIONS } from '../data/locations.js';
+import { officialStory } from '../systems/HistorySystem.js';
 
-const TABS = [['evidence', 'Evidence'], ['persons', 'Persons'], ['conclusions', 'Conclusions'], ['hints', 'Hints']];
+const TABS = [['case', 'Case'], ['evidence', 'Evidence'], ['persons', 'People'], ['hints', 'Hints']];
 
 export class JournalUI {
-  constructor(overlay, ctrl) { this.overlay = overlay; this.ctrl = ctrl; this.tab = 'evidence'; this.line = null; this.nudges = {}; }
+  constructor(overlay, ctrl) { this.overlay = overlay; this.ctrl = ctrl; this.tab = 'case'; this.shown = new Set(); }
 
   open(tab) {
     if (tab) this.tab = tab;
@@ -27,16 +31,13 @@ export class JournalUI {
       this.tabs.append(h('button', { class: `tab ${this.tab === id ? 'on' : ''}`, role: 'tab', 'aria-selected': this.tab === id, onclick: () => { this.tab = id; this.render(); } }, label));
     }
     clear(this.body);
-    ({ evidence: () => this.evidence(), persons: () => this.persons(), conclusions: () => this.conclusions(), hints: () => this.hints() })[this.tab]();
+    ({ case: () => this.case(), evidence: () => this.evidence(), persons: () => this.persons(), hints: () => this.hints() })[this.tab]();
   }
 
   evidence() {
     const w = this.ctrl.world, n = evidenceCount(w);
-    const filters = h('div', { class: 'filters' }, h('span', { class: 'count', text: `${n.held} of ${n.total} found` }));
-    const mk = (id, label) => h('button', { class: `chip ${this.line === id ? 'on' : ''}`, onclick: () => { this.line = id; this.render(); } }, label);
-    filters.append(mk(null, 'All'), ...Object.values(INVESTIGATION_LINES).map((l) => mk(l.id, l.name)));
-    this.body.append(filters);
-    const items = journalEvidence(w, this.line);
+    this.body.append(h('p', { class: 'count', text: `${n.held} of ${n.total} found, in the order you found them. Open the Deduction Board (B) to connect them.` }));
+    const items = journalEvidence(w);
     if (!items.length) { this.body.append(h('p', { class: 'empty', text: 'Nothing here yet. Search, ask, and look again.' })); return; }
     const list = h('div', { class: 'cards' });
     for (const ev of items) {
@@ -55,25 +56,29 @@ export class JournalUI {
     this.body.append(list);
   }
 
-  conclusions() {
-    const w = this.ctrl.world, prog = coreProgress(w);
-    this.body.append(h('p', { class: 'count', text: `Core reconstruction: ${prog.done} of ${prog.total} established` }));
+  /** What to do next, and the official version of 2001, struck through as the evidence contradicts it. */
+  case() {
+    this.body.append(h('section', { class: 'box' }, h('h3', { text: 'What now?' }), h('p', { text: this.ctrl.objective() })));
+    const claims = officialStory(this.ctrl.world);
+    const left = claims.filter((c) => c.status === 'official').length;
+    this.body.append(h('h3', { text: 'The story the town tells about Christmas Eve 2001' }),
+      h('p', { class: 'count', text: left ? `${claims.length - left} of ${claims.length} claims contradicted so far.` : 'Every part of the official story is contradicted.' }));
     const list = h('div', { class: 'cards' });
-    for (const c of journalConclusions(w)) {
-      list.append(h('article', { class: `card conclusion ${c.status}` },
-        h('div', {}, h('h3', { text: c.title }), h('p', { text: c.text }), c.status === 'open' ? h('button', { class: 'btn small', onclick: () => { this.ctrl.closeOverlay(); this.ctrl.openOverlay('board'); } }, 'Open the Deduction Board') : null)));
+    for (const c of claims) {
+      list.append(h('article', { class: `card claim ${c.status}` },
+        h('div', {}, h('h3', { text: c.claim }),
+          c.reasons.length ? c.reasons.map((r) => h('p', { text: r })) : h('p', { class: 'src', text: 'Still the official story.' }))));
     }
     this.body.append(list);
   }
 
   hints() {
     const w = this.ctrl.world;
-    this.body.append(h('section', { class: 'box' }, h('h3', { text: 'What now?' }), h('p', { text: this.ctrl.objective() })));
     const open = openPuzzles(w);
     this.body.append(h('h3', { text: 'Puzzles you can attempt' }));
     if (!open.length) this.body.append(h('p', { class: 'empty', text: 'No open puzzles right now.' }));
     for (const id of open) {
-      const box = h('section', { class: 'box' }, h('h4', { text: PUZZLES[id].name }));
+      const box = h('section', { class: 'box' }, h('h4', { text: PUZZLES[id].name }), h('p', { class: 'src', text: `Where: ${LOCATIONS[PUZZLES[id].location].name}` }));
       for (const [i, t] of hintsUnlocked(w, id).entries()) box.append(h('p', { class: 'hint', text: `Hint ${i + 1}: ${t}` }));
       const used = hintsUnlocked(w, id).length;
       if (used < PUZZLES[id].hints.length) {
@@ -81,15 +86,13 @@ export class JournalUI {
       }
       this.body.append(box);
     }
-    const conclusions = journalConclusions(w).filter((c) => c.status !== 'confirmed');
-    this.body.append(h('h3', { text: 'Deduction help' }));
-    const tryable = conclusions.filter((c) => c.status === 'open');
-    if (!tryable.length) this.body.append(h('p', { class: 'empty', text: 'You have no untested leads. Keep collecting evidence.' }));
-    for (const c of tryable) {
-      const level = this.nudges[c.id] || 0;
-      const box = h('section', { class: 'box' }, h('p', { text: c.text }));
-      for (let i = 0; i < level; i++) box.append(h('p', { class: 'hint', text: relationHint(w, c.id, i) }));
-      if (level < 3) box.append(h('button', { class: 'btn small', onclick: () => { this.nudges[c.id] = level + 1; this.render(); } }, 'Nudge me'));
+    this.body.append(h('h3', { text: 'Questions you can answer now' }));
+    const leads = openLeads(w);
+    if (!leads.length) this.body.append(h('p', { class: 'empty', text: 'No open questions you can answer with what you hold. Keep collecting evidence.' }));
+    for (const l of leads) {
+      const box = h('section', { class: 'box' }, h('p', { text: l.question }));
+      if (this.shown.has(l.id)) box.append(h('p', { class: 'hint', text: `Link "${EVIDENCE[l.pair[0]].name}" with "${EVIDENCE[l.pair[1]].name}" on the Deduction Board.` }));
+      else box.append(h('button', { class: 'btn small', onclick: () => { this.shown.add(l.id); this.render(); } }, 'Show me'));
       this.body.append(box);
     }
   }

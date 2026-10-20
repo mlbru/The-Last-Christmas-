@@ -1,129 +1,107 @@
-// Deduction relations, near-misses and confrontations.
-// A relation is confirmed when the player links any one of its `pairs` on the board.
-// Wrong or unrelated links only produce feedback; nothing here can block progress.
+// Deductions and confrontations.
+// A deduction is confirmed when the player links any one of its `pairs` on the board. Each one has:
+//   question    the open question the board shows on its cards before it is solved (never the answer)
+//   pairs       the evidence pairs that prove it
+//   conclusion  what Rowan now knows
+//   core        needed for the ceremony;   sets: story flags it sets (optional)
+// Wrong links only produce feedback; nothing here can block progress.
+
+const rel = (id, def) => ({ id, core: false, sets: [], ...def });
 
 export const RELATIONS = {
-  r_report_inventory: {
-    id: 'r_report_inventory', core: true, line: 'A',
+  r_report_inventory: rel('r_report_inventory', {
+    core: true, sets: ['archive_discrepancy_found'],
     label: 'The report and the inventory disagree',
+    question: 'Does the archive\'s own record agree with the fire report?',
     pairs: [['ev_fire_report', 'ev_inventory'], ['ev_fire_report', 'ev_backdated_slip']],
     conclusion: 'The fire report lists Dossier 0412 as destroyed. The inventory for the day of the fire stops at 0411. Either a dossier burned that was never on the books, or the books were changed afterwards.',
-    sets: ['archive_discrepancy_found'], unlocks: ['conf_nora'],
-  },
-  r_recipe_report: {
-    id: 'r_recipe_report', core: true, line: 'A',
+  }),
+  r_recipe_report: rel('r_recipe_report', {
+    core: true,
     label: 'The baker was in the church that night',
+    question: 'Was the church really locked and empty from nine o\'clock?',
     pairs: [['ev_recipe_book', 'ev_fire_report'], ['ev_receipt', 'ev_fire_report']],
     conclusion: 'The report says the church was locked and empty from 21:00. Margot\'s book and receipt put her, and the Committee, inside the annex until midnight.',
-    sets: [], unlocks: ['conf_margot'],
-  },
-  r_missing_funds: {
-    id: 'r_missing_funds', core: true, line: 'A',
+  }),
+  r_missing_funds: rel('r_missing_funds', {
+    core: true, sets: ['fund_trail_found'],
     label: 'The lost dossiers were the money',
+    question: 'What exactly was in the dossiers that burned?',
     pairs: [['ev_missing_list', 'ev_inventory'], ['ev_recipe_key', 'ev_missing_list'], ['ev_missing_list', 'ev_fire_report']],
     conclusion: 'The "lost" dossiers 0405 to 0412 were the Restoration Fund ledgers: 184,000 raised for the roof and the sprinklers. The money never reached the building, and the paper that could show it burned.',
-    sets: ['fund_trail_found'], unlocks: [],
-  },
-  r_payments: {
-    id: 'r_payments', core: true, line: 'B',
+  }),
+  r_payments: rel('r_payments', {
+    core: true, sets: ['payments_pattern_found'],
     label: 'The payments were a system',
+    question: 'Who has been paying the people who remember that night?',
     pairs: [['ev_eddie_ledger', 'ev_recipe_book'], ['ev_eddie_ledger', 'ev_receipt'], ['ev_eddie_ledger', 'ev_mayor_speech']],
     conclusion: 'Eddie\'s book and Margot\'s margins show the same yearly sum from the Committee, paid on the same date. Nobody was bribed once. They were kept comfortable for twenty-five years.',
-    sets: ['payments_pattern_found'], unlocks: ['conf_eddie'],
-  },
-  r_statements_copied: {
-    id: 'r_statements_copied', core: true, line: 'B',
+  }),
+  r_statements_copied: rel('r_statements_copied', {
+    core: true, sets: ['statements_altered'],
     label: 'Two witnesses, one sentence',
+    question: 'Why do the witnesses all describe that night the same way?',
     pairs: [['ev_silas_statement', 'ev_rowan_statement'], ['ev_silas_statement', 'ev_eddie_testimony']],
     conclusion: 'Silas and a seven-year-old gave the same sentence, down to the comma. Statements this exact were not remembered. They were dictated.',
-    sets: ['statements_altered'], unlocks: ['conf_silas'],
-  },
-  r_speech_script: {
-    id: 'r_speech_script', core: false, line: 'B',
+  }),
+  r_speech_script: rel('r_speech_script', {
+    sets: ['speech_script_found'],
     label: 'The mayor\'s speech is a script',
+    question: 'Where do the words of the mayor\'s speech come from?',
     pairs: [['ev_mayor_speech', 'ev_fire_report'], ['ev_mayor_speech', 'ev_silas_statement']],
     conclusion: 'The mayor\'s yearly speech repeats the report\'s phrasing word for word, and a pencilled line shows what must never be said aloud: the Fund.',
-    sets: ['speech_script_found'], unlocks: [],
-  },
-  r_thomas_plan: {
-    id: 'r_thomas_plan', core: false, line: 'B',
+  }),
+  r_thomas_plan: rel('r_thomas_plan', {
+    sets: ['thomas_plan_understood'],
     label: 'Thomas planned to speak',
+    question: 'What was Thomas planning to do on Christmas Eve?',
     pairs: [['ev_thomas_diary', 'ev_thomas_letter']],
     conclusion: 'Thomas visited Nora, Silas and Eddie in the days before he vanished, and wrote to Rowan. He planned to expose the truth on Christmas Eve, and he wanted Rowan to find it independently.',
-    sets: ['thomas_plan_understood'], unlocks: [],
-  },
-  r_scarf_statement: {
-    id: 'r_scarf_statement', core: false, line: 'C',
+  }),
+  r_scarf_statement: rel('r_scarf_statement', {
+    sets: ['scarf_contradiction_found'],
     label: 'The scarf was on the boy',
+    question: 'Who was actually wearing the red scarf that night?',
     pairs: [['ev_festival_photo', 'ev_rowan_statement']],
     conclusion: 'At 23:10 the red scarf was wrapped round Rowan. His statement identifies "the man in the red scarf" going into the archive at 23:40. The identification came from the question he was asked, not from what he saw.',
-    sets: ['scarf_contradiction_found'], unlocks: [],
-  },
-  r_twelve_meaning: {
-    id: 'r_twelve_meaning', core: false, line: 'C',
+  }),
+  r_twelve_meaning: rel('r_twelve_meaning', {
+    sets: ['knows_twelve_meaning'],
     label: 'The twelve means a plate',
+    question: 'What does Thomas mean by "twelve"?',
     pairs: [['ev_festival_photo', 'ev_note_twelve']],
     conclusion: 'The boy in the photo holds a copper plate stamped 12. Thomas\'s note asks where plate twelve is. It was never lost. It was handed to a child.',
-    sets: ['knows_twelve_meaning'], unlocks: [],
-  },
-  r_star_meaning: {
-    id: 'r_star_meaning', core: false, line: 'C',
+  }),
+  r_star_meaning: rel('r_star_meaning', {
+    sets: ['star_meaning_understood'],
     label: 'The Star is a lock',
+    question: 'Why does the Star matter so much?',
     pairs: [['ev_star_inscription', 'ev_note_twelve']],
     conclusion: 'The cornerstone says how the Star is meant to be kindled, and Thomas counts its plates. The Star has twelve points, and the twelfth is not an ornament.',
-    sets: ['star_meaning_understood'], unlocks: [],
-  },
-  r_dossier_report: {
-    id: 'r_dossier_report', core: false, line: 'A', final: true,
+  }),
+  r_dossier_report: rel('r_dossier_report', {
     label: 'The twelfth dossier against the report',
+    question: 'Did the twelfth dossier really burn?',
     pairs: [['ev_dossier_12', 'ev_fire_report']],
     conclusion: 'The dossier the report says burned is intact, and it is signed. The report was written to hide it.',
-    sets: [], unlocks: [],
-  },
-  r_dossier_statement: {
-    id: 'r_dossier_statement', core: false, line: 'C', final: true,
+  }),
+  r_dossier_statement: rel('r_dossier_statement', {
+    sets: ['rowan_role_understood'],
     label: 'The child\'s own words',
+    question: 'What did the child actually see?',
     pairs: [['ev_dossier_12', 'ev_rowan_statement'], ['ev_dossier_12', 'ev_silas_statement']],
     conclusion: 'The dossier holds a child\'s handwritten account that says something quite different. Rowan\'s typed statement was built over it. He was a witness the story could not afford to hear.',
-    sets: ['rowan_role_understood'], unlocks: [],
-  },
-  r_elias_dossier: {
-    id: 'r_elias_dossier', core: false, line: 'C', final: true,
+  }),
+  r_elias_dossier: rel('r_elias_dossier', {
     label: 'Where Elias hid the proof',
+    question: 'Who hid the twelfth dossier, and why?',
     pairs: [['ev_elias_letter', 'ev_dossier_12']],
     conclusion: 'Elias copied the twelfth ledger and hid it in the Star. What became of him that night, the evidence does not say. Only that he did not do what the report claims.',
-    sets: [], unlocks: [],
-  },
+  }),
 };
 
 export const RELATION_IDS = Object.freeze(Object.keys(RELATIONS));
 export const CORE_RELATIONS = Object.freeze(RELATION_IDS.filter((id) => RELATIONS[id].core));
-
-// Pairs that are topically linked but do not form a confirmed relation yet.
-export const NEAR_MISSES = [
-  { pair: ['ev_fire_report', 'ev_eddie_testimony'], message: 'Both tell the official version of that night. One is a document, the other is a rumour. Where does each one come from?' },
-  { pair: ['ev_eddie_ledger', 'ev_thomas_diary'], message: 'Thomas visited Eddie, and Eddie keeps books. Something is near here, but these two alone do not say why.' },
-  { pair: ['ev_rowan_statement', 'ev_eddie_testimony'], message: 'Two accounts of the same night. Read them side by side.' },
-  { pair: ['ev_thomas_diary', 'ev_note_twelve'], message: 'Thomas wrote both, but one is a schedule and one is a question. They do not answer each other yet.' },
-  { pair: ['ev_inventory', 'ev_recipe_book'], message: 'The archive and the bakery are very different places. What would connect them?' },
-];
-
-// Shown when a conclusion cannot be reached yet: which piece of the picture is missing.
-export const MISSING_REASONS = {
-  r_report_inventory: 'You need both the official account of the fire and a record of what the archive actually held.',
-  r_recipe_report: 'You need the baker\'s own records and the official account of that night.',
-  r_missing_funds: 'You do not yet know what was in the lost dossiers.',
-  r_payments: 'You do not yet know who was being paid, and by whom.',
-  r_statements_copied: 'You need two witness statements to compare.',
-  r_speech_script: 'You need the mayor\'s speech and a document to check it against.',
-  r_thomas_plan: 'You need more of what Thomas left behind.',
-  r_scarf_statement: 'You need the photograph and the statement that mentions the scarf.',
-  r_twelve_meaning: 'You need the photograph and whatever Thomas wrote about the number twelve.',
-  r_star_meaning: 'You need the Star\'s inscription and Thomas\'s counting.',
-  r_dossier_report: 'You do not yet have the twelfth dossier.',
-  r_dossier_statement: 'You do not yet have the twelfth dossier.',
-  r_elias_dossier: 'You do not yet have the twelfth dossier.',
-};
 
 export const CONFRONTATIONS = {
   conf_nora: {

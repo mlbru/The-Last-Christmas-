@@ -18,6 +18,9 @@ import { EVIDENCE } from '../data/evidence.js';
 import { START_LOCATION } from '../data/locationIds.js';
 import { LOCATIONS, DEFAULT_DEPTH } from '../data/locations.js';
 
+/** A speech bubble closes once Rowan has walked this many px away from where it appeared. */
+export const BUBBLE_WALK_AWAY = 24;
+
 export class GameController {
   constructor({ storage } = {}) {
     this.save = new SaveSystem(storage || defaultStorage());
@@ -29,6 +32,7 @@ export class GameController {
     this.session = null;           // active puzzle session
     this.puzzleId = null;
     this.player = { x: 0, d: DEFAULT_DEPTH, facing: 'right' };
+    this._bubbleX = null;                        // where Rowan stood when the current bubble appeared
     this._listeners = {};
     this._detach = null;
     this._finaleRunning = false;
@@ -125,6 +129,10 @@ export class GameController {
   tick(dtMs, x, d, facing) {
     if (!this.world) return;
     this.player = { x, d, facing };
+    if (this._bubbleX !== null && Math.abs(x - this._bubbleX) > BUBBLE_WALK_AWAY) {
+      this._bubbleX = null;
+      this.emit('bubbleEnd');
+    }
     if (this.mode === 'explore') {
       this.world.addPlaytime(dtMs);
       this.world.setPosition(this.world.data.location, x, d, facing);   // so every autosave knows where Rowan is
@@ -150,6 +158,7 @@ export class GameController {
     this._announceNewEvidence((res.newEvidence || []).map((e) => EVIDENCE[e]));
     switch (res.kind) {
       case 'say': case 'blocked':
+        this._bubbleX = this.player ? this.player.x : null;
         this.emit('bubble', { lines: res.lines, interaction: res.interaction, kind: res.kind });
         break;
       case 'dialogue':
@@ -239,7 +248,7 @@ export class GameController {
   // ---- finale -----------------------------------------------------------------------------------
   startFinale() {
     const gate = canStartFinale(this.world);
-    if (!gate.ok) { this.emit('bubble', { lines: [gate.missing[0]], kind: 'blocked' }); return false; }
+    if (!gate.ok) { this._bubbleX = this.player ? this.player.x : null; this.emit('bubble', { lines: [gate.missing[0]], kind: 'blocked' }); return false; }
     this._finaleRunning = true;
     this.previousMode = 'explore';
     if (this.runner.active) this.runner.abort();

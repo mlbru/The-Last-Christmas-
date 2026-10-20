@@ -1,9 +1,8 @@
-// Evidence collection and the three journal views (evidence, persons, conclusions).
+// Evidence collection and the journal's evidence and persons views.
 // Pure logic; the DOM journal in ui/JournalUI.js only renders what this returns.
 
 import { EVIDENCE, isValidEvidence } from '../data/evidence.js';
 import { CHARACTERS } from '../data/characters.js';
-import { RELATIONS, MISSING_REASONS } from '../data/deductions.js';
 import { recompute } from '../game/StoryLogic.js';
 import { check } from './Conditions.js';
 
@@ -22,18 +21,9 @@ export function collect(world, ids) {
 }
 
 /** Evidence the player holds, in the order found. */
-export function journalEvidence(world, line = null) {
-  return world.data.evidence
-    .map((id) => EVIDENCE[id])
-    .filter((e) => e && (line === null || e.line === line));
+export function journalEvidence(world) {
+  return world.data.evidence.map((id) => EVIDENCE[id]).filter(Boolean);
 }
-
-const LINES = {
-  A: { id: 'A', name: 'The official history', blurb: 'What the town says happened to the archive.' },
-  B: { id: 'B', name: 'The people who stayed silent', blurb: 'Why the story lasted twenty-five years.' },
-  C: { id: 'C', name: 'Rowan and Elias', blurb: 'What the detective had to do with it.' },
-};
-export const INVESTIGATION_LINES = LINES;
 
 /** Which characters are listed in the Persons tab. */
 const KNOWN_WHEN = {
@@ -57,29 +47,6 @@ export function journalPersons(world) {
     out.push({ id: c.id, name: c.name, role: c.role, notes });
   }
   return out;
-}
-
-/**
- * The Conclusions tab. Confirmed relations show their conclusion. Open ones explain *why* a
- * conclusion is not available yet (never giving the answer away).
- */
-export function journalConclusions(world) {
-  const held = new Set(world.data.evidence);
-  return Object.values(RELATIONS)
-    .filter((r) => !r.final || held.has('ev_dossier_12') || world.data.relations.includes(r.id))
-    .map((r) => {
-      if (world.data.relations.includes(r.id)) {
-        return { id: r.id, status: 'confirmed', line: r.line, title: r.label, text: r.conclusion };
-      }
-      const couldTry = r.pairs.some(([a, b]) => held.has(a) && held.has(b));
-      return {
-        id: r.id, status: couldTry ? 'open' : 'locked', line: r.line,
-        title: 'An unanswered question',
-        text: couldTry
-          ? 'You hold evidence that might connect here. Try linking pieces on the Deduction Board.'
-          : MISSING_REASONS[r.id],
-      };
-    });
 }
 
 export function evidenceCount(world) {

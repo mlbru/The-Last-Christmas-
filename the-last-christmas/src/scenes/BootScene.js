@@ -6,7 +6,7 @@ import { CHARACTERS } from '../data/characters.js';
 import { EXTRA_LOOKS, CROWD_LOOKS } from '../data/npcs.js';
 import { LOCATION_IDS } from '../data/locationIds.js';
 import { characterSheet, FRAME_W, FRAME_H, FRAME_COUNT, FRAMES } from '../art/sprites.js';
-import { renderLocation, renderVignette, renderGrille, renderChain } from '../art/backgrounds.js';
+import { renderLocation, renderVignette, renderGrille, renderChain, halo } from '../art/backgrounds.js';
 import { PixelCanvas } from '../art/PixelCanvas.js';
 import { christmasStar } from '../art/scenery.js';
 import { PAL } from '../art/palette.js';
@@ -51,6 +51,7 @@ export class BootScene extends Phaser.Scene {
     const arrow = new PixelCanvas(9, 6); arrow.triangle(0, 0, 8, 0, 4, 5, PAL.amberHi); arrow.outline('#16121f'); add('arrow', arrow);
     const spark = new PixelCanvas(7, 7); spark.triangle(3, 0, 6, 3, 3, 6, PAL.amberHi); spark.triangle(3, 0, 0, 3, 3, 6, PAL.amber); spark.px(3, 3, '#ffffff'); add('spark', spark);
     const star = new PixelCanvas(56, 56); christmasStar(star, 28, 28, 22, { lit: true }); add('star_lit', star);
+    const glow = new PixelCanvas(128, 128); halo(glow, 64, 64, 62, '#ffd98a', 1); add('star_glow', glow);    // round, fades to nothing at the edge
 
     app.onBootDone(this);
   }

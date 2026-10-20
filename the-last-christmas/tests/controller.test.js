@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GameController } from '../src/game/GameController.js';
+import { GameController, BUBBLE_WALK_AWAY } from '../src/game/GameController.js';
 import { MemoryStorage } from '../src/systems/SaveSystem.js';
 import { Bot } from './helpers/bot.js';
 
@@ -151,4 +151,20 @@ test('controller: linking evidence reports conclusions and wrong links never cha
   const r = c.link('ev_fire_report', 'ev_mayor_speech');
   assert.notEqual(r.status, 'invalid');
   assert.equal(c.mode, 'explore');
+});
+
+test('controller: a speech bubble ends once Rowan walks away from it', () => {
+  const c = make();
+  c.newGame(); finishDialogue(c, 2);
+  c.player = { x: 205, d: 15, facing: 'right' };
+  c.interactWith('sq_door_office'); finishDialogue(c);
+  c.player = { x: 190, d: 15, facing: 'right' };
+  const log = events(c, ['bubble', 'bubbleEnd']);
+  c.interactWith('of_window');
+  assert.equal(log.filter(([n]) => n === 'bubble').length, 1);
+  c.tick(16, 190 + BUBBLE_WALK_AWAY, 15, 'right');            // shuffling in place keeps it open
+  assert.equal(log.filter(([n]) => n === 'bubbleEnd').length, 0);
+  c.tick(16, 190 + BUBBLE_WALK_AWAY + 1, 15, 'right');
+  c.tick(16, 260, 15, 'right');
+  assert.equal(log.filter(([n]) => n === 'bubbleEnd').length, 1, 'ends exactly once');
 });

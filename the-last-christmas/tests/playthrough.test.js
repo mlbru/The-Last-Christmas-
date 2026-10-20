@@ -140,9 +140,10 @@ test('playthrough: at the moment the tower opens the dossier does not exist yet,
 test('playthrough: essential evidence is never removed by any code path', async () => {
   const { readdirSync, readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
   const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
   const offenders = [];
-  for (const file of walk(new URL('../src', import.meta.url).pathname).filter((f) => f.endsWith('.js'))) {
+  for (const file of walk(fileURLToPath(new URL('../src', import.meta.url))).filter((f) => f.endsWith('.js'))) {
     const text = readFileSync(file, 'utf8');
     if (/evidence\.(splice|pop|shift|length\s*=)|data\.evidence\s*=[^=]|evidence\s*=\s*\[\]/.test(text)) offenders.push(file);
   }

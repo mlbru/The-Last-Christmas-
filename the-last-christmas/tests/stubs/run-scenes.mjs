@@ -37,6 +37,16 @@ for (const id of LOCATION_IDS) {
   sc.onDialogue({ speaker: 'rowan' }); sc.onDialogue(null);
   sc.transitionTo({ id: 'square', x: 400, d: 15, facing: 'right' });
 }
+// Phaser's scene.restart() reuses the same instance: leaving a room must keep working after the first time
+const walker = new LocationScene(); walker.registry.set('app', app);
+let entry = { id: 'square', x: 400, d: 15, facing: 'right' };
+for (const to of ['home', 'square', 'office', 'square']) {
+  walker.init(entry); walker.create();
+  walker.restarted = null;
+  walker.transitionTo({ id: to, x: 100, d: 15, facing: 'right' });
+  if (!walker.restarted || walker.restarted.id !== to) throw new Error(`could not leave ${entry.id} for ${to}`);
+  entry = walker.restarted;
+}
 // finale cues on the square
 const sq = new LocationScene(); sq.registry.set('app', app);
 ctrl.world.data.location = 'square';

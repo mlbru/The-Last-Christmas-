@@ -179,8 +179,8 @@ export const INTERACTIONS = [
   { id: 'hm_photo', location: 'home', x: 395, type: INSPECT, label: 'Family photograph', description: 'The mantel, in a plain frame.',
     action: { say: ["Me at about seven, in someone else's scarf, looking at the camera like it owed me an explanation. The scarf is red. I never asked whose."] },
     repeat: { say: ["The scarf is red. It's always been red."] } },
-  { id: 'hm_toybox', location: 'home', x: 485, type: PUZZLE, label: 'The old toy box', description: 'Under the window, painted with stars.', action: { puzzle: 'puzzle_toybox' } },
-  { id: 'hm_drawing', location: 'home', x: 540, type: COLLECT, label: 'Bottom of the toy box', description: 'There is more at the bottom.',
+  { id: 'hm_toybox', location: 'home', x: 470, type: PUZZLE, label: 'The old toy box', description: 'Under the window, painted with stars.', action: { puzzle: 'puzzle_toybox' } },
+  { id: 'hm_drawing', location: 'home', x: 515, type: COLLECT, label: 'Bottom of the toy box', description: 'There is more at the bottom.',
     requires: { when: { puzzle: 'puzzle_toybox' }, message: "The toy box is full of things I should look at properly first." },
     action: { node: 'find_drawing' } },
 ];

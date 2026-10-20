@@ -7,7 +7,7 @@ import { WorldState } from '../src/game/WorldState.js';
 import { canStartFinale } from '../src/game/StoryLogic.js';
 import { collect } from '../src/systems/EvidenceSystem.js';
 import {
-  testLink, whyNotAvailable, relationHint, coreProgress,
+  testLink, cardInfo, openLeads, establishedConclusions, coreProgress,
   confrontationAvailable, confrontationLockedReason, presentEvidence, confrontationHint,
 } from '../src/systems/DeductionSystem.js';
 
@@ -63,7 +63,7 @@ test('deduction: a WRONG link changes no progress and can be repeated forever (r
       if (a >= b || realPairs.has([a, b].sort().join('|'))) continue;
       for (let i = 0; i < 3; i++) {
         const res = testLink(w, a, b);
-        assert.ok(['unsupported', 'near'].includes(res.status), `${a}+${b} -> ${res.status}`);
+        assert.equal(res.status, 'unsupported', `${a}+${b} -> ${res.status}`);
         assert.ok(res.message.length > 10);
       }
       wrong++;
@@ -81,14 +81,6 @@ test('deduction: wrong links never block the right ones afterwards', () => {
   assert.equal(testLink(w, 'ev_fire_report', 'ev_inventory').status, 'confirmed');
 });
 
-test('deduction: first failure gives feedback but not the solution', () => {
-  const w2 = fresh();
-  collect(w2, ['ev_recipe_book', 'ev_inventory']);
-  const near = testLink(w2, 'ev_recipe_book', 'ev_inventory');
-  assert.equal(near.status, 'near');
-  assert.doesNotMatch(near.message, /ev_|0412|Committee/);
-});
-
 test('deduction: invalid inputs are rejected without throwing or changing state', () => {
   const w = fresh();
   collect(w, ['ev_fire_report']);
@@ -98,25 +90,40 @@ test('deduction: invalid inputs are rejected without throwing or changing state'
   assert.deepEqual(w.data.relations, []);
 });
 
-test('deduction: unavailable conclusions explain why (rule 6)', () => {
+test('board: a card explains its open questions without naming the answer until asked', () => {
   const w = fresh();
-  assert.match(whyNotAvailable(w, 'r_payments'), /who was being paid/);
-  collect(w, ['ev_eddie_ledger', 'ev_recipe_book']);
-  assert.equal(whyNotAvailable(w, 'r_payments'), null);
+  collect(w, ['ev_eddie_ledger']);
+  let info = cardInfo(w, 'ev_eddie_ledger');
+  const q = info.open.find((o) => o.id === 'r_payments');
+  assert.ok(q && q.core, 'the cash book belongs to the payments question');
+  assert.deepEqual(q.partners, [], 'nothing to pair it with yet');
+  assert.doesNotMatch(q.question, /Margot|recipe|receipt|speech/i, 'the question never names the other card');
+  collect(w, ['ev_recipe_book']);
+  info = cardInfo(w, 'ev_eddie_ledger');
+  assert.deepEqual(info.open.find((o) => o.id === 'r_payments').partners, ['ev_recipe_book']);
   testLink(w, 'ev_eddie_ledger', 'ev_recipe_book');
-  assert.equal(whyNotAvailable(w, 'r_payments'), null, 'confirmed relations need no reason');
+  info = cardInfo(w, 'ev_eddie_ledger');
+  assert.ok(!info.open.some((o) => o.id === 'r_payments'));
+  assert.equal(info.established[0].id, 'r_payments');
+  assert.deepEqual(establishedConclusions(w).map((r) => r.id), ['r_payments']);
 });
 
-test('deduction: hints escalate from vague to explicit', () => {
+test('board: every question is answerable, and open leads point at a pair the player holds', () => {
+  for (const r of Object.values(RELATIONS)) assert.ok(r.question.endsWith('?') && r.label && r.conclusion, r.id);
   const w = fresh();
+  assert.deepEqual(openLeads(w), []);
   collect(w, ['ev_silas_statement', 'ev_rowan_statement']);
-  const h0 = relationHint(w, 'r_statements_copied', 0);
-  const h1 = relationHint(w, 'r_statements_copied', 1);
-  const h2 = relationHint(w, 'r_statements_copied', 2);
-  assert.doesNotMatch(h0, /Silas|statement/i);
-  assert.match(h1, /Silas's statement|Rowan's statement/);
-  assert.match(h2, /Silas's statement/);
-  assert.match(h2, /Rowan's statement/);
+  const lead = openLeads(w).find((l) => l.id === 'r_statements_copied');
+  assert.ok(lead.pair.every((e) => w.hasEvidence(e)));
+  testLink(w, ...lead.pair);
+  assert.ok(!openLeads(w).some((l) => l.id === 'r_statements_copied'));
+});
+
+test('deduction: the reconstruction is announced once, by the link that completes it', () => {
+  const w = fresh();
+  holdAll(w);
+  const results = [...CORE_RELATIONS, 'r_thomas_plan'].map((id) => testLink(w, ...RELATIONS[id].pairs[0]));
+  assert.deepEqual(results.map((r) => r.reconstructed), [false, false, false, false, true, false]);
 });
 
 test('deduction: confirming all five core relations reconstructs the Committee history', () => {

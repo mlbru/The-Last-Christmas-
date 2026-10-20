@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { FLAGS, FLAG_IDS, isValidFlag } from '../src/data/storyFlags.js';
 import { EVIDENCE, EVIDENCE_IDS, ESSENTIAL_EVIDENCE } from '../src/data/evidence.js';
 import { CHARACTERS } from '../src/data/characters.js';
-import { RELATIONS, CONFRONTATIONS, NEAR_MISSES, MISSING_REASONS } from '../src/data/deductions.js';
+import { RELATIONS, CONFRONTATIONS } from '../src/data/deductions.js';
 import { PUZZLES } from '../src/data/puzzles.js';
 import { LOCATION_IDS } from '../src/data/locationIds.js';
 import { WorldState, createInitialData, MILESTONE_FLAGS } from '../src/game/WorldState.js';
 import { recompute, canStartFinale, nextObjective, thoroughness, EVIDENCE_IMPLIES_FLAG } from '../src/game/StoryLogic.js';
-import { collect, journalEvidence, journalPersons, journalConclusions } from '../src/systems/EvidenceSystem.js';
+import { collect, journalEvidence, journalPersons } from '../src/systems/EvidenceSystem.js';
 
 const fresh = () => new WorldState();
 
@@ -28,12 +28,9 @@ test('data: evidence records are complete and point at real locations', () => {
     assert.equal(typeof e.name, 'string', e.id);
     assert.ok(e.description.length > 30, `${e.id} description`);
     assert.ok(e.source.length > 3, `${e.id} source`);
-    assert.ok(['A', 'B', 'C'].includes(e.line), `${e.id} line`);
     assert.ok(LOCATION_IDS.includes(e.foundIn), `${e.id} foundIn ${e.foundIn}`);
     assert.equal(e.id, EVIDENCE_IDS.find((id) => EVIDENCE[id] === e));
   }
-  // The three investigation lines of the design document are all populated.
-  for (const line of ['A', 'B', 'C']) assert.ok(EVIDENCE_IDS.some((id) => EVIDENCE[id].line === line));
 });
 
 test('data: the evidence named in the design document exists', () => {
@@ -158,8 +155,6 @@ test('journal: evidence keeps order found; persons appear only once met', () => 
   const w = fresh();
   collect(w, ['ev_fire_report', 'ev_receipt']);
   assert.deepEqual(journalEvidence(w).map((e) => e.id), ['ev_fire_report', 'ev_receipt']);
-  assert.deepEqual(journalEvidence(w, 'A').length, 2);
-  assert.deepEqual(journalEvidence(w, 'B').length, 0);
 
   let ids = journalPersons(w).map((p) => p.id);
   assert.ok(ids.includes('rowan') && ids.includes('thomas'));
@@ -172,19 +167,6 @@ test('journal: evidence keeps order found; persons appear only once met', () => 
   assert.equal(eddie.notes.length, 1);
   w.setFlag('eddie_statement_heard');
   assert.equal(journalPersons(w).find((p) => p.id === 'eddie').notes.length, 2);
-});
-
-test('journal: conclusions explain why they are unavailable and hide final spoilers', () => {
-  const w = fresh();
-  let list = journalConclusions(w);
-  assert.ok(list.every((c) => c.status === 'locked'));
-  assert.ok(list.every((c) => c.text === MISSING_REASONS[c.id]));
-  assert.ok(!list.some((c) => RELATIONS[c.id].final), 'final conclusions stay hidden until the dossier');
-  collect(w, ['ev_fire_report', 'ev_inventory']);
-  list = journalConclusions(w);
-  assert.equal(list.find((c) => c.id === 'r_report_inventory').status, 'open');
-  // Open conclusions must not reveal the answer.
-  assert.doesNotMatch(list.find((c) => c.id === 'r_report_inventory').text, /0412/);
 });
 
 test('thoroughness only changes the tier, never anything that gates progress', () => {
@@ -211,13 +193,8 @@ test('data: references inside deductions are valid', () => {
   for (const r of Object.values(RELATIONS)) {
     r.pairs.forEach((p) => { assert.equal(p.length, 2); p.forEach((e) => assert.ok(EVIDENCE[e], `${r.id}:${e}`)); assert.notEqual(p[0], p[1]); });
     r.sets.forEach((f) => assert.ok(isValidFlag(f), `${r.id}:${f}`));
-    r.unlocks.forEach((u) => assert.ok(CONFRONTATIONS[u], `${r.id}:${u}`));
-    assert.ok(MISSING_REASONS[r.id], r.id);
   }
-  for (const n of NEAR_MISSES) {
-    const rel = Object.values(RELATIONS).find((r) => r.pairs.some((p) => (p[0] === n.pair[0] && p[1] === n.pair[1]) || (p[0] === n.pair[1] && p[1] === n.pair[0])));
-    assert.equal(rel, undefined, `near-miss ${n.pair} must not also be a real relation`);
-  }
+  for (const c of Object.values(CONFRONTATIONS)) assert.ok(RELATIONS[c.requiresRelation], `${c.id} needs a real deduction`);
   assert.ok(ESSENTIAL_EVIDENCE.length > 15);
 });
 

@@ -78,7 +78,7 @@ export function createApp({ renderer, storage } = {}) {
     } else if (['journal', 'board', 'pause', 'puzzle'].includes(m)) {
       if (e.key === 'Escape') { e.preventDefault(); overlay.close(); }
       else if (m === 'journal' && (e.key === 'j' || e.key === 'J')) overlay.close();
-      else if (m === 'board' && (e.key === 'b' || e.key === 'B') && !/^(INPUT|BUTTON)$/.test(e.target.tagName)) overlay.close();
+      else if (m === 'board' && (e.key === 'b' || e.key === 'B')) overlay.close();
     }
   });
 

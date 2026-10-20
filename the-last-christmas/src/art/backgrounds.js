@@ -13,7 +13,7 @@ import {
 
 export const VIEW_W = 480;
 export const VIEW_H = 270;
-const FLOOR_Y = 206;      // where walls meet the floor in interiors / the ground line outdoors
+const FLOOR_Y = 220;      // where walls meet the floor in interiors, just behind Rowan's feet
 const GROUND_TOP = 206;
 
 // ---------- helpers ----------
@@ -228,7 +228,15 @@ function bench(c, x, baseY) {
 }
 
 // ---------- interiors ----------
-function roomShell(w, { wall = PAL.woodDark, wain = PAL.wood, floor = PAL.wood, paper = null, stone = false, trim = PAL.wood2 } = {}) {
+// Rooms are drawn at Rowan's scale: he is 48 px tall (about 1.8 m), so a metre is roughly 27 px.
+// Doors are a little taller than he is, the wainscot reaches his hip, window sills sit at table
+// height and the ceiling is about 3.4 m up. Everything on a wall is placed relative to FLOOR_Y.
+const CEIL_Y = FLOOR_Y - 92;       // where the back wall meets the ceiling (living rooms, shops)
+const WAIN_Y = FLOOR_Y - 30;       // top of the wainscot
+const WIN_Y = FLOOR_Y - 80;        // top of a window pane; panes are WIN_H tall, the sill lands on the wainscot
+const WIN_H = 46;
+
+function roomShell(w, { wall = PAL.woodDark, wain = PAL.wood, floor = PAL.wood, paper = null, stone = false, trim = PAL.wood2, ceiling = true } = {}) {
   const c = new PixelCanvas(w, VIEW_H);
   c.rect(0, 0, w, FLOOR_Y, wall);
   if (stone) {
@@ -238,12 +246,20 @@ function roomShell(w, { wall = PAL.woodDark, wain = PAL.wood, floor = PAL.wood, 
     }
   } else if (paper) {
     for (let x = 0; x < w; x += 12) { c.vline(x, 0, FLOOR_Y, mix(wall, paper, 0.18)); c.vline(x + 1, 0, FLOOR_Y, mix(wall, PAL.ink, 0.12)); }
-    for (let y = 8; y < 130; y += 20) for (let x = 6; x < w; x += 24) c.px(x, y, mix(wall, paper, 0.4));
+    for (let y = CEIL_Y + 10; y < WAIN_Y - 4; y += 20) for (let x = 6; x < w; x += 24) c.px(x, y, mix(wall, paper, 0.4));
   }
   // wainscot and baseboard
-  c.rect(0, 136, w, FLOOR_Y - 136, wain); c.rect(0, 134, w, 3, trim);
-  for (let x = 0; x < w; x += 22) c.vline(x, 140, FLOOR_Y - 144, mix(wain, PAL.ink, 0.25));
+  c.rect(0, WAIN_Y, w, FLOOR_Y - WAIN_Y, wain); c.rect(0, WAIN_Y - 2, w, 3, trim);
+  for (let x = 0; x < w; x += 22) c.vline(x, WAIN_Y + 4, FLOOR_Y - WAIN_Y - 8, mix(wain, PAL.ink, 0.25));
   c.rect(0, FLOOR_Y - 5, w, 5, mix(trim, PAL.ink, 0.25));
+  if (ceiling) {
+    // the ceiling seen from below: boards that widen as they come towards the camera, then a cornice
+    const ceil = mix(wall, PAL.ink, 0.55);
+    c.rect(0, 0, w, CEIL_Y, ceil);
+    for (let y = CEIL_Y - 3, gap = 4; y > 0; gap += 3, y -= gap) c.hline(0, y, w, mix(ceil, PAL.ink, 0.45));
+    c.rect(0, CEIL_Y - 4, w, 4, mix(trim, PAL.ink, 0.15)); c.hline(0, CEIL_Y, w, mix(trim, PAL.ink, 0.5));
+    fade(c, 0, CEIL_Y + 1, w, 10, '#000000', 0.25, 0, 4);    // shadow under the cornice
+  }
   // floor planks, receding
   c.rect(0, FLOOR_Y, w, VIEW_H - FLOOR_Y, floor);
   for (let y = FLOOR_Y + 8; y < VIEW_H; y += 11) c.hline(0, y, w, mix(floor, PAL.ink, 0.35));
@@ -256,14 +272,20 @@ function roomShell(w, { wall = PAL.woodDark, wain = PAL.wood, floor = PAL.wood, 
 function nightWindow(c, x, y, w, h, glows, { snowy = true } = {}) {
   c.rect(x - 3, y - 3, w + 6, h + 6, PAL.woodDark);
   c.vgradient(x, y, w, h, PAL.night0, PAL.dusk, 6);
-  stars(c, 0, 0, 0);
   for (let i = 0; i < 9; i++) c.px(x + hash(x + i * 3) * w, y + hash(i * 7 + y) * h * 0.6, '#ffffff', 0.7);
   if (snowy) for (let i = 0; i < 14; i++) c.px(x + hash(i * 5 + x) * w, y + hash(i * 9 + 3) * h, '#dce6ff', 0.8);
   c.rect(x, y + h - 5, w, 5, PAL.snow3, 0.9);
   c.rect(x + Math.floor(w / 2), y, 2, h, PAL.woodDark); c.rect(x, y + Math.floor(h / 2), w, 2, PAL.woodDark);
   c.rect(x - 4, y + h + 3, w + 8, 3, PAL.wood2);
-  c.rect(x - 4, y - 5, w + 8, 2, PAL.snow, 0.0);
   glows.moon.push({ x: x + w / 2, y: y + h, w });
+}
+
+/** A window in a room wall, at human height: the sill rests on the wainscot. */
+function wallWindow(c, x, w, glows, curtain = null) {
+  nightWindow(c, x, WIN_Y, w, WIN_H, glows);
+  if (!curtain) return;
+  c.rect(x - 8, WIN_Y - 5, w + 16, 4, curtain);
+  c.rect(x - 8, WIN_Y - 1, 11, WIN_H + 4, curtain, 0.75); c.rect(x + w - 3, WIN_Y - 1, 11, WIN_H + 4, curtain, 0.75);
 }
 
 function lamp(c, glows, x, y, { r = 54, color = PAL.glow, a = 0.45 } = {}) {
@@ -272,10 +294,16 @@ function lamp(c, glows, x, y, { r = 54, color = PAL.glow, a = 0.45 } = {}) {
   halo(glows.canvas, x, y - 2, r, color, a);
 }
 
+/** A lamp hanging from the ceiling on a cord. */
+function pendant(c, glows, x, y, opts) {
+  c.rect(x, CEIL_Y, 1, y - CEIL_Y - 8, PAL.ink);
+  lamp(c, glows, x, y, opts);
+}
+
 function doorHome(c, glows, x = 60) {
-  door(c, x, FLOOR_Y, 24, 52, { wood: PAL.wood2, frame: PAL.woodDark, glows });
-  c.rect(x - 8, FLOOR_Y - 46, 16, 12, '#2a3a6a'); c.rect(x - 8, FLOOR_Y - 46, 16, 1, PAL.woodDark);
-  for (let i = 0; i < 6; i++) c.px(x - 7 + i * 3, FLOOR_Y - 44 + (i % 3) * 3, '#dce6ff', 0.7);
+  door(c, x, FLOOR_Y, 24, 54, { wood: PAL.wood2, frame: PAL.woodDark, glows });
+  c.rect(x - 8, FLOOR_Y - 48, 16, 12, '#2a3a6a'); c.rect(x - 8, FLOOR_Y - 48, 16, 1, PAL.woodDark);
+  for (let i = 0; i < 6; i++) c.px(x - 7 + i * 3, FLOOR_Y - 46 + (i % 3) * 3, '#dce6ff', 0.7);
 }
 
 function rug(c, x, w, color, edge = PAL.gold) {
@@ -285,19 +313,22 @@ function rug(c, x, w, color, edge = PAL.gold) {
 
 function furnishOffice(c, g) {
   doorHome(c, g, 60);
-  nightWindow(c, 168, 60, 44, 62, g);
-  c.rect(160, 56, 60, 5, PAL.red); c.rect(160, 61, 12, 52, PAL.red, 0.7); c.rect(208, 61, 12, 52, PAL.red, 0.7);       // curtains
+  wallWindow(c, 168, 44, g, PAL.red);
   c.rect(262, FLOOR_Y - 34, 120, 12, PAL.wood2).frame(262, FLOOR_Y - 34, 120, 12, PAL.woodDark);                   // desk top
   c.rect(266, FLOOR_Y - 22, 40, 22, PAL.wood); c.rect(338, FLOOR_Y - 22, 40, 22, PAL.wood);
   c.rect(270, FLOOR_Y - 18, 32, 8, PAL.woodDark); c.rect(272, FLOOR_Y - 16, 28, 4, PAL.wood2); c.rect(284, FLOOR_Y - 15, 4, 2, PAL.gold);
-  c.rect(318, FLOOR_Y - 40, 22, 6, PAL.paper); c.rect(320, FLOOR_Y - 42, 18, 3, PAL.paperDark);
+  c.rect(318, FLOOR_Y - 40, 22, 6, PAL.paper); c.rect(320, FLOOR_Y - 42, 18, 3, PAL.paperDark);              // blotter and scrap
   lamp(c, g, 358, FLOOR_Y - 48, { r: 70, a: 0.5 });
   crateStack(c, 396, FLOOR_Y + 8);
-  c.rect(452, 98, 3, 108, PAL.ink); c.rect(440, 98, 27, 2, PAL.ink); c.rect(440, 98, 4, 5, PAL.ink); c.rect(463, 98, 4, 5, PAL.ink);
-  c.rect(442, 100, 20, 8, PAL.red2); c.rect(440, 98, 9, 3, PAL.red);                // hat on the stand
-  c.rect(520, 76, 56, 62, PAL.paperDark).frame(520, 76, 56, 62, PAL.woodDark);
-  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) c.rect(526 + k * 13, 84 + r * 13, 10, 9, [PAL.red2, PAL.green, '#4a78c0', PAL.amber][(r + k) % 4], 0.85);
-  bookshelf(c, 590, FLOOR_Y, 44, 120, { seed: 4 });
+  // coat stand with one hat and no coat
+  const top = FLOOR_Y - 62;
+  c.rect(452, top, 3, 62, PAL.ink); c.rect(444, FLOOR_Y - 2, 19, 2, PAL.ink); c.rect(440, top, 27, 2, PAL.ink); c.rect(440, top, 4, 5, PAL.ink); c.rect(463, top, 4, 5, PAL.ink);
+  c.rect(442, top + 2, 20, 8, PAL.red2); c.rect(440, top, 9, 3, PAL.red);
+  // festival schedule, colour-coded
+  c.rect(520, FLOOR_Y - 80, 56, 46, PAL.paperDark).frame(520, FLOOR_Y - 80, 56, 46, PAL.woodDark);
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) c.rect(526 + k * 13, FLOOR_Y - 75 + r * 10, 10, 7, [PAL.red2, PAL.green, '#4a78c0', PAL.amber][(r + k) % 4], 0.85);
+  bookshelf(c, 590, FLOOR_Y, 44, 74, { seed: 4 });
+  pendant(c, g, 300, CEIL_Y + 18, { r: 40, a: 0.2 });
   rug(c, 230, 160, '#5a2030');
 }
 
@@ -305,28 +336,28 @@ function crateStack(c, x, baseY) { crate(c, x - 8, baseY, 18, 14); crate(c, x + 
 
 function furnishInn(c, g) {
   doorHome(c, g, 60);
-  nightWindow(c, 120, 62, 40, 54, g);
-  nightWindow(c, 560 - 280, 62, 0, 0, g);
-  // beams
-  for (let x = 40; x < c.width; x += 120) { c.rect(x, 0, 8, 136, PAL.woodDark); }
-  c.rect(0, 0, c.width, 8, PAL.woodDark);
+  wallWindow(c, 120, 40, g);
+  // ceiling beams
+  for (let x = 40; x < c.width; x += 120) { c.rect(x, 0, 8, CEIL_Y, PAL.woodDark); c.rect(x - 2, CEIL_Y - 6, 12, 6, PAL.woodDark); }
   // bar and shelves of bottles
   c.rect(300, FLOOR_Y - 38, 130, 14, PAL.wood2).frame(300, FLOOR_Y - 38, 130, 14, PAL.woodDark);
   c.rect(300, FLOOR_Y - 24, 130, 24, PAL.wood); for (let x = 306; x < 426; x += 20) c.rect(x, FLOOR_Y - 20, 16, 16, PAL.woodDark);
-  c.rect(300, 88, 130, 3, PAL.woodDark); c.rect(300, 118, 130, 3, PAL.woodDark);
-  for (let x = 306; x < 426; x += 9) { c.rect(x, 74, 4, 14, [PAL.green, PAL.amberDeep, PAL.red, '#3a5a8a'][(x / 9 | 0) % 4]); c.rect(x, 104, 4, 14, [PAL.amberDeep, PAL.green, '#3a5a8a', PAL.red][(x / 9 | 0) % 4]); }
-  lamp(c, g, 365, 70, { r: 60 });
+  c.rect(388, FLOOR_Y - 41, 16, 3, PAL.cream); c.rect(390, FLOOR_Y - 43, 12, 2, PAL.paperDark);              // tea towel over the cash book
+  const s1 = FLOOR_Y - 58, s2 = FLOOR_Y - 82;
+  c.rect(300, s1, 130, 3, PAL.woodDark); c.rect(300, s2, 130, 3, PAL.woodDark);
+  for (let x = 306; x < 426; x += 9) { c.rect(x, s1 - 12, 4, 12, [PAL.green, PAL.amberDeep, PAL.red, '#3a5a8a'][(x / 9 | 0) % 4]); c.rect(x, s2 - 12, 4, 12, [PAL.amberDeep, PAL.green, '#3a5a8a', PAL.red][(x / 9 | 0) % 4]); }
+  pendant(c, g, 365, FLOOR_Y - 64, { r: 60 });
   // table + stools + patron seat
   c.rect(214, FLOOR_Y - 26, 36, 4, PAL.wood2); c.rect(228, FLOOR_Y - 22, 8, 22, PAL.wood); c.rect(216, FLOOR_Y - 4, 32, 3, PAL.woodDark);
   c.rect(176, FLOOR_Y - 18, 14, 3, PAL.wood2); c.rect(181, FLOOR_Y - 15, 4, 15, PAL.woodDark);
-  // fireplace
-  c.rect(444, 96, 52, 110, PAL.stoneDark); c.rect(440, 90, 60, 8, PAL.stone2);
-  c.rect(452, 130, 36, 76, PAL.ink); c.rect(454, 150, 32, 56, '#2a0f10');
-  for (let k = 0; k < 7; k++) { c.triangle(456 + k * 5, 206, 458 + k * 5, 168 - (k % 3) * 8, 462 + k * 5, 206, k % 2 ? PAL.amberDeep : PAL.amber); c.triangle(458 + k * 5, 206, 460 + k * 5, 182 - (k % 2) * 6, 463 + k * 5, 206, PAL.amberHi); }
-  halo(g.canvas, 470, 180, 90, '#ff9a3c', 0.5);
-  c.rect(442, 84, 56, 6, PAL.pine2); for (let x = 444; x < 496; x += 7) c.px(x, 85, PAL.red2);
+  // fireplace: chimney breast up to the ceiling, firebox at knee height
+  c.rect(444, CEIL_Y, 52, FLOOR_Y - CEIL_Y, PAL.stoneDark); c.rect(440, FLOOR_Y - 52, 60, 6, PAL.stone2);
+  c.rect(452, FLOOR_Y - 42, 36, 42, PAL.ink); c.rect(454, FLOOR_Y - 34, 32, 34, '#2a0f10');
+  for (let k = 0; k < 7; k++) { c.triangle(456 + k * 5, FLOOR_Y, 458 + k * 5, FLOOR_Y - 24 - (k % 3) * 4, 462 + k * 5, FLOOR_Y, k % 2 ? PAL.amberDeep : PAL.amber); c.triangle(458 + k * 5, FLOOR_Y, 460 + k * 5, FLOOR_Y - 14 - (k % 2) * 4, 463 + k * 5, FLOOR_Y, PAL.amberHi); }
+  halo(g.canvas, 470, FLOOR_Y - 20, 80, '#ff9a3c', 0.5);
+  c.rect(442, FLOOR_Y - 58, 56, 6, PAL.pine2); for (let x = 444; x < 496; x += 7) c.px(x, FLOOR_Y - 57, PAL.red2);
   // photo wall and jukebox
-  for (let i = 0; i < 6; i++) frameBox(c, 524 + (i % 3) * 22, 64 + ((i / 3) | 0) * 26 + (i % 2) * 3, 16, 20, i % 2 ? '#b8b4a8' : '#9a9a9a');
+  for (let i = 0; i < 6; i++) frameBox(c, 524 + (i % 3) * 22, FLOOR_Y - 82 + ((i / 3) | 0) * 24 + (i % 2) * 3, 16, 20, i % 2 ? '#b8b4a8' : '#9a9a9a');
   c.rect(632, FLOOR_Y - 52, 34, 52, PAL.red); c.rect(634, FLOOR_Y - 50, 30, 20, PAL.amberDeep); c.ellipse(649, FLOOR_Y - 46, 14, 8, PAL.amber);
   c.rect(638, FLOOR_Y - 26, 22, 4, PAL.gold); halo(g.canvas, 649, FLOOR_Y - 36, 32, PAL.amber, 0.3);
   rug(c, 150, 220, '#3a4a2a');
@@ -334,36 +365,39 @@ function furnishInn(c, g) {
 
 function furnishBakery(c, g) {
   doorHome(c, g, 60);
-  nightWindow(c, 130, 60, 56, 56, g);
-  c.rect(0, 100, c.width, 3, PAL.paper, 0.0);
-  // counter with display
+  wallWindow(c, 130, 56, g);
+  // counter with display; the recipe book is tucked on the shelf underneath
   c.rect(266, FLOOR_Y - 34, 74, 14, PAL.paper).frame(266, FLOOR_Y - 34, 74, 14, PAL.woodDark);
   c.rect(266, FLOOR_Y - 20, 74, 20, PAL.wood); c.rect(272, FLOOR_Y - 46, 60, 12, '#9acaff', 0.25).frame(272, FLOOR_Y - 46, 60, 12, '#c8e4ff', 0.5);
   for (let k = 0; k < 5; k++) c.ellipse(278 + k * 11, FLOOR_Y - 38, 4, 2, k % 2 ? PAL.amberDeep : PAL.plank);
-  c.rect(318, FLOOR_Y - 42, 14, 8, PAL.gold); c.rect(320, FLOOR_Y - 40, 10, 4, PAL.ink);       // till
-  // shelves of loaves + hanging garland
-  c.rect(360, 80, 80, 3, PAL.woodDark); c.rect(360, 112, 80, 3, PAL.woodDark);
-  for (let k = 0; k < 6; k++) { c.ellipse(372 + k * 12, 77, 5, 3, PAL.plank); c.ellipse(372 + k * 12, 109, 5, 3, PAL.amberDeep); }
+  c.rect(318, FLOOR_Y - 16, 18, 12, PAL.woodDark); c.rect(320, FLOOR_Y - 14, 14, 10, '#7a2a2a'); c.rect(326, FLOOR_Y - 14, 2, 10, PAL.gold);
+  // side cabinet with the till and the old biscuit tin
+  c.rect(392, FLOOR_Y - 32, 40, 32, PAL.wood).frame(392, FLOOR_Y - 32, 40, 32, PAL.woodDark); c.rect(390, FLOOR_Y - 34, 44, 3, PAL.wood2);
+  c.rect(396, FLOOR_Y - 44, 16, 10, PAL.gold); c.rect(398, FLOOR_Y - 42, 12, 4, PAL.ink); c.rect(397, FLOOR_Y - 36, 14, 2, PAL.amberDeep);     // till
+  c.rect(414, FLOOR_Y - 42, 14, 8, '#3a6a8a').frame(414, FLOOR_Y - 42, 14, 8, PAL.ink); c.rect(414, FLOOR_Y - 43, 14, 2, '#5a8aaa'); c.px(420, FLOOR_Y - 39, PAL.red2);   // tin
+  // shelves of loaves above it
+  const s1 = FLOOR_Y - 58, s2 = FLOOR_Y - 80;
+  c.rect(360, s1, 80, 3, PAL.woodDark); c.rect(360, s2, 80, 3, PAL.woodDark);
+  for (let k = 0; k < 6; k++) { c.ellipse(372 + k * 12, s2 - 3, 5, 3, PAL.plank); c.ellipse(372 + k * 12, s1 - 3, 5, 3, PAL.amberDeep); }
   // table with lamp (margin-comparison table)
   c.rect(448, FLOOR_Y - 30, 52, 4, PAL.wood2); c.rect(452, FLOOR_Y - 26, 4, 26, PAL.woodDark); c.rect(492, FLOOR_Y - 26, 4, 26, PAL.woodDark);
   c.rect(458, FLOOR_Y - 34, 18, 4, PAL.paper); c.rect(480, FLOOR_Y - 33, 14, 3, PAL.paperDark);
   lamp(c, g, 487, FLOOR_Y - 46, { r: 50, a: 0.35 });
-  // brick oven
-  c.rect(520, 80, 56, 126, PAL.brick); for (let y = 82; y < 204; y += 6) c.hline(520, y, 56, PAL.brickDark);
-  c.rect(530, 140, 36, 36, PAL.ink); c.rect(534, 148, 28, 26, '#3a0f0a'); c.ellipse(548, 168, 12, 6, PAL.amberDeep); c.ellipse(548, 168, 7, 3, PAL.amberHi);
-  halo(g.canvas, 548, 166, 76, '#ff8a3c', 0.5);
-  c.rect(512, 76, 72, 6, PAL.stoneDark);
-  // back door
-  door(c, 604, FLOOR_Y, 22, 46, { wood: PAL.wood, glows: g });
-  for (let x = 20; x < 120; x += 22) c.rect(x, 150, 8, 6, PAL.paper, 0.5);
+  // brick oven, up to the ceiling
+  c.rect(520, CEIL_Y, 56, FLOOR_Y - CEIL_Y, PAL.brick); for (let y = CEIL_Y + 2; y < FLOOR_Y - 2; y += 6) c.hline(520, y, 56, PAL.brickDark);
+  c.rect(530, FLOOR_Y - 58, 36, 34, PAL.ink); c.rect(534, FLOOR_Y - 50, 28, 26, '#3a0f0a'); c.ellipse(548, FLOOR_Y - 32, 12, 6, PAL.amberDeep); c.ellipse(548, FLOOR_Y - 32, 7, 3, PAL.amberHi);
+  halo(g.canvas, 548, FLOOR_Y - 34, 76, '#ff8a3c', 0.5);
+  c.rect(512, FLOOR_Y - 62, 72, 4, PAL.stoneDark);
+  // back door and order slips pinned by the front door
+  door(c, 604, FLOOR_Y, 22, 52, { wood: PAL.wood, glows: g });
+  for (let x = 84; x < 120; x += 11) c.rect(x, FLOOR_Y - 60, 8, 6, PAL.paper, 0.5);
   rug(c, 200, 180, '#6a3a2a');
 }
 
 function furnishPolice(c, g) {
   doorHome(c, g, 60);
-  nightWindow(c, 168, 62, 38, 50, g);
-  c.rect(168, 92, 38, 22, PAL.ink, 0.0);
-  for (let k = 0; k < 4; k++) c.rect(170 + k * 9, 64, 2, 46, PAL.ink, 0.75);                        // bars
+  wallWindow(c, 168, 38, g);
+  for (let k = 0; k < 4; k++) c.rect(170 + k * 9, WIN_Y + 2, 2, WIN_H - 4, PAL.ink, 0.75);                        // bars
   // front desk
   c.rect(110, FLOOR_Y - 40, 82, 14, PAL.stoneDark).frame(110, FLOOR_Y - 40, 82, 14, PAL.ink); c.rect(110, FLOOR_Y - 26, 82, 26, PAL.stone);
   c.rect(134, FLOOR_Y - 48, 14, 8, PAL.cream); c.rect(160, FLOOR_Y - 46, 10, 6, PAL.gold);
@@ -373,42 +407,45 @@ function furnishPolice(c, g) {
   lamp(c, g, 344, FLOOR_Y - 46, { r: 52, a: 0.35 });
   // filing cabinets
   for (const x of [404, 454]) {
-    c.rect(x, FLOOR_Y - 70, 40, 70, '#5a6a7a').frame(x, FLOOR_Y - 70, 40, 70, PAL.ink);
-    for (let d = 0; d < 3; d++) { c.rect(x + 4, FLOOR_Y - 64 + d * 22, 32, 18, '#6c7c8c'); c.rect(x + 15, FLOOR_Y - 56 + d * 22, 10, 3, PAL.gold); c.rect(x + 10, FLOOR_Y - 62 + d * 22, 20, 4, PAL.paper); }
+    c.rect(x, FLOOR_Y - 54, 40, 54, '#5a6a7a').frame(x, FLOOR_Y - 54, 40, 54, PAL.ink);
+    for (let d = 0; d < 3; d++) { c.rect(x + 4, FLOOR_Y - 50 + d * 17, 32, 14, '#6c7c8c'); c.rect(x + 15, FLOOR_Y - 43 + d * 17, 10, 3, PAL.gold); c.rect(x + 10, FLOOR_Y - 48 + d * 17, 20, 3, PAL.paper); }
   }
   // noticeboard
-  c.rect(534, 64, 76, 70, PAL.woodDark); c.rect(538, 68, 68, 62, '#8a6a42');
-  for (let k = 0; k < 7; k++) { c.rect(542 + (k % 3) * 21, 72 + ((k / 3) | 0) * 19, 16, 14, [PAL.paper, PAL.cream, '#d8c8a0'][k % 3]); c.px(550 + (k % 3) * 21, 72 + ((k / 3) | 0) * 19, PAL.red2); }
-  // flag and clock
-  c.rect(250, 52, 3, 40, PAL.ink); c.rect(253, 54, 22, 14, PAL.red);
-  c.rect(5, 0, 0, 0, PAL.ink);
-  c.circle(240, 40, 9, PAL.stone2); c.circle(240, 40, 7, PAL.cream); c.line(240, 40, 240, 35, PAL.ink); c.line(240, 40, 243, 41, PAL.ink);
+  c.rect(534, FLOOR_Y - 84, 76, 52, PAL.woodDark); c.rect(538, FLOOR_Y - 80, 68, 44, '#8a6a42');
+  for (let k = 0; k < 6; k++) { c.rect(542 + (k % 3) * 21, FLOOR_Y - 77 + ((k / 3) | 0) * 20, 16, 14, [PAL.paper, PAL.cream, '#d8c8a0'][k % 3]); c.px(550 + (k % 3) * 21, FLOOR_Y - 77 + ((k / 3) | 0) * 20, PAL.red2); }
+  // flag on a floor stand and a wall clock
+  c.rect(262, FLOOR_Y - 66, 3, 66, PAL.ink); c.rect(257, FLOOR_Y - 2, 13, 2, PAL.ink); c.rect(265, FLOOR_Y - 64, 22, 14, PAL.red);
+  c.circle(236, FLOOR_Y - 74, 9, PAL.stone2); c.circle(236, FLOOR_Y - 74, 7, PAL.cream); c.line(236, FLOOR_Y - 74, 236, FLOOR_Y - 79, PAL.ink); c.line(236, FLOOR_Y - 74, 239, FLOOR_Y - 73, PAL.ink);
+  pendant(c, g, 330, CEIL_Y + 20, { r: 40, color: '#cfe0ff', a: 0.18 });
   rug(c, 250, 160, '#2a3a4a', PAL.stone2);
 }
 
 function furnishHome(c, g) {
   doorHome(c, g, 60);
-  // hallway clock, four minutes slow
-  c.rect(130, 74, 30, 90, PAL.wood2).frame(130, 74, 30, 90, PAL.woodDark);
-  c.circle(145, 92, 10, PAL.cream); c.circle(145, 92, 8, PAL.paper); c.line(145, 92, 145, 85, PAL.ink); c.line(145, 92, 150, 95, PAL.ink);
-  c.rect(141, 112, 8, 36, PAL.woodDark); c.circle(145, 142, 4, PAL.gold);
+  // hallway clock, four minutes slow: a longcase clock just taller than Rowan
+  const ct = FLOOR_Y - 60;
+  c.rect(131, ct, 28, 60, PAL.wood2).frame(131, ct, 28, 60, PAL.woodDark); c.rect(129, ct - 4, 32, 5, PAL.woodDark);
+  c.circle(145, ct + 12, 9, PAL.cream); c.circle(145, ct + 12, 7, PAL.paper); c.line(145, ct + 12, 145, ct + 6, PAL.ink); c.line(145, ct + 12, 149, ct + 15, PAL.ink);
+  c.rect(140, ct + 26, 10, 28, PAL.woodDark); c.rect(144, ct + 27, 2, 18, PAL.gold); c.circle(145, ct + 47, 3, PAL.gold);
   // armchair
   c.rect(212, FLOOR_Y - 40, 46, 40, '#6a2a3a'); c.rect(206, FLOOR_Y - 28, 12, 28, '#7a3a4a'); c.rect(252, FLOOR_Y - 28, 12, 28, '#7a3a4a');
   c.rect(214, FLOOR_Y - 18, 42, 8, '#8a4a5a'); c.rect(206, FLOOR_Y - 32, 12, 6, PAL.cream, 0.8);
-  // mantel + fire + photo + note
-  c.rect(296, 118, 120, 88, PAL.stoneDark); c.rect(288, 110, 136, 8, PAL.stone2);
-  c.rect(318, 140, 76, 66, PAL.ink); c.rect(322, 154, 68, 52, '#1c0a0a');
-  for (let k = 0; k < 5; k++) { c.triangle(328 + k * 12, 206, 334 + k * 12, 176 - (k % 3) * 6, 340 + k * 12, 206, k % 2 ? PAL.amberDeep : PAL.amber, 0.8); }
-  c.rect(326, 196, 60, 8, '#2a1410'); halo(g.canvas, 356, 186, 84, '#ff9a3c', 0.42);
-  frameBox(c, 380, 90, 22, 18, '#b8b4a8'); c.rect(316, 100, 12, 8, PAL.paper); c.rect(332, 96, 8, 12, PAL.pine2);
-  // window with Star-shaped decoration + toy box
-  nightWindow(c, 452, 62, 44, 56, g);
-  c.rect(444, 58, 60, 5, '#6a3a4a'); c.rect(444, 63, 10, 52, '#6a3a4a', 0.75); c.rect(494, 63, 10, 52, '#6a3a4a', 0.75);
-  c.rect(466, FLOOR_Y - 26, 40, 26, '#3a5a8a').frame(466, FLOOR_Y - 26, 40, 26, PAL.woodDark);
-  for (let k = 0; k < 4; k++) christmasStar(c, 476 + k * 9, FLOOR_Y - 14 + (k % 2) * 4, 3, {});
-  c.rect(466, FLOOR_Y - 30, 40, 5, '#4a6aa0');
-  // a draught of stale light and hanging dust: faded paper and a calendar stuck on December
-  c.rect(540, 76, 30, 40, PAL.paper); c.rect(540, 76, 30, 8, PAL.red); c.rect(544, 88, 22, 22, PAL.cream, 0.5);
+  // fireplace with a mantel at chest height; the note, the pine sprig and the photograph stand on it
+  const m = FLOOR_Y - 40;
+  c.rect(300, m, 112, FLOOR_Y - m, PAL.stoneDark); c.rect(292, m - 5, 128, 5, PAL.stone2);
+  c.rect(326, m + 10, 60, 30, PAL.ink); c.rect(330, m + 14, 52, 26, '#1c0a0a');
+  for (let k = 0; k < 4; k++) c.triangle(334 + k * 12, FLOOR_Y, 340 + k * 12, FLOOR_Y - 14 - (k % 3) * 4, 346 + k * 12, FLOOR_Y, k % 2 ? PAL.amberDeep : PAL.amber, 0.8);
+  c.rect(332, FLOOR_Y - 4, 48, 4, '#2a1410'); halo(g.canvas, 356, FLOOR_Y - 14, 70, '#ff9a3c', 0.42);
+  c.rect(316, m - 13, 10, 8, PAL.paper); c.rect(334, m - 17, 8, 12, PAL.pine2);
+  frameBox(c, 384, m - 23, 22, 18, '#b8b4a8');
+  // window with the toy box underneath: a long chest painted with stars
+  wallWindow(c, 462, 44, g, '#6a3a4a');
+  c.rect(456, FLOOR_Y - 26, 68, 26, '#3a5a8a').frame(456, FLOOR_Y - 26, 68, 26, PAL.woodDark);
+  for (let k = 0; k < 7; k++) christmasStar(c, 463 + k * 9, FLOOR_Y - 14 + (k % 2) * 4, 3, {});
+  c.rect(456, FLOOR_Y - 30, 68, 5, '#4a6aa0');
+  // a calendar stuck on December
+  c.rect(556, FLOOR_Y - 80, 26, 34, PAL.paper); c.rect(556, FLOOR_Y - 80, 26, 7, PAL.red); c.rect(559, FLOOR_Y - 70, 20, 20, PAL.cream, 0.5);
+  pendant(c, g, 300, CEIL_Y + 18, { r: 36, a: 0.15 });
   rug(c, 190, 220, '#3a2a4a');
 }
 
@@ -427,22 +464,22 @@ function furnishArchive(c, g) {
   for (const x of [130, 170, 210]) { c.rect(x, FLOOR_Y - 20, 86, 6, PAL.wood2); c.rect(x, FLOOR_Y - 34, 86, 4, PAL.wood); c.rect(x + 2, FLOOR_Y - 14, 4, 14, PAL.woodDark); c.rect(x + 80, FLOOR_Y - 14, 4, 14, PAL.woodDark); }
   // cornerstone and bell ropes
   c.rect(286, FLOOR_Y - 26, 40, 26, PAL.stone2).frame(286, FLOOR_Y - 26, 40, 26, PAL.stoneDark); for (let k = 0; k < 4; k++) c.hline(292, FLOOR_Y - 20 + k * 4, 28 - k * 3, PAL.stoneDark);
-  for (const x of [410, 424, 438]) { c.rect(x, 60, 2, 146, PAL.paperDark); c.rect(x - 2, 164, 6, 14, '#a03030'); }
+  for (const x of [410, 424, 438]) { c.rect(x, 60, 2, FLOOR_Y - 60, PAL.paperDark); c.rect(x - 2, FLOOR_Y - 42, 6, 14, '#a03030'); }
   // parish annex door
   door(c, 520, FLOOR_Y, 30, 56, { wood: PAL.woodDark, frame: PAL.ink, glows: g }); c.rect(504, FLOOR_Y - 64, 32, 6, PAL.stoneDark);
   // archive beyond the grille (x >= 620): warm green lamps, shelves
   c.rect(620, 0, w - 620, FLOOR_Y, mix(PAL.woodDark, PAL.night0, 0.3));
   for (let x = 626; x < w - 20; x += 11) c.vline(x, 0, FLOOR_Y, mix(PAL.woodDark, PAL.ink, 0.4));
-  bookshelf(c, 636, FLOOR_Y, 56, 128, { seed: 9 });
+  bookshelf(c, 636, FLOOR_Y, 56, 98, { seed: 9 });
   c.rect(700, FLOOR_Y - 34, 62, 10, PAL.wood2); c.rect(704, FLOOR_Y - 24, 8, 24, PAL.woodDark); c.rect(750, FLOOR_Y - 24, 8, 24, PAL.woodDark);
   c.rect(716, FLOOR_Y - 40, 24, 6, PAL.paper);
   lamp(c, g, 746, FLOOR_Y - 46, { r: 70, color: '#9affb0', a: 0.35 }); c.rect(742, FLOOR_Y - 52, 9, 4, '#2a8a5a');
-  bookshelf(c, 790, FLOOR_Y, 90, 140, { seed: 21 });
-  bookshelf(c, 884, FLOOR_Y, 60, 118, { seed: 33 });
+  bookshelf(c, 790, FLOOR_Y, 90, 112, { seed: 21 });
+  bookshelf(c, 884, FLOOR_Y, 60, 84, { seed: 33 });
   c.rect(898, FLOOR_Y - 32, 40, 8, PAL.wood2); c.rect(902, FLOOR_Y - 24, 5, 24, PAL.woodDark); c.rect(930, FLOOR_Y - 24, 5, 24, PAL.woodDark);
   for (let k = 0; k < 5; k++) c.rect(900 + k * 7, FLOOR_Y - 36, 5, 5, PAL.paper);
   // tower stairs with chain and sign
-  c.rect(972, 66, 70, 140, mix(PAL.stoneDark, PAL.night0, 0.4)); c.rect(980, 84, 54, 122, PAL.ink);
+  c.rect(972, 66, 70, FLOOR_Y - 66, mix(PAL.stoneDark, PAL.night0, 0.4)); c.rect(980, 84, 54, FLOOR_Y - 84, PAL.ink);
   for (let k = 0; k < 8; k++) c.rect(984 + k * 4, FLOOR_Y - 12 - k * 8, 40 - k * 4, 6, mix(PAL.stone, PAL.ink, 0.3 + k * 0.05));
   c.rect(975, 142, 3, 2, PAL.ink);
   // nave carpet
@@ -454,13 +491,13 @@ function furnishTower(c, g) {
   doorHome(c, g, 60);
   // belfry arches with night view
   for (const x of [120, 300, 480]) {
-    c.rect(x, 50, 70, 156, PAL.ink);
-    c.rect(x + 6, 60, 58, 146, PAL.night1); c.vgradient(x + 6, 60, 58, 120, PAL.night0, PAL.dusk, 8);
+    c.rect(x, 50, 70, FLOOR_Y - 50, PAL.ink);
+    c.rect(x + 6, 60, 58, FLOOR_Y - 60, PAL.night1); c.vgradient(x + 6, 60, 58, 120, PAL.night0, PAL.dusk, 8);
     c.circle(x + 35, 60, 29, PAL.night1, 0.0);
     stars(c, 0, 0, 0);
     for (let i = 0; i < 20; i++) c.px(x + 8 + hash(x + i) * 54, 62 + hash(i * 3 + x) * 80, '#ffffff', 0.5 + hash(i) * 0.4);
     for (let i = 0; i < 26; i++) c.px(x + 8 + hash(i * 11 + x) * 54, 62 + hash(i * 5) * 140, '#dce6ff', 0.8);
-    c.rect(x + 6, 196, 58, 10, PAL.snow3);
+    c.rect(x + 6, FLOOR_Y - 10, 58, 10, PAL.snow3);
   }
   // big bell
   c.rect(240, 36, 70, 5, PAL.woodDark); c.rect(262, 40, 26, 6, PAL.ink);
@@ -471,7 +508,7 @@ function furnishTower(c, g) {
   c.rect(196, FLOOR_Y - 14, 8, 14, '#6a8a9a'); c.rect(197, FLOOR_Y - 16, 6, 3, PAL.red);
   lamp(c, g, 206, FLOOR_Y - 26, { r: 56, a: 0.4 });
   // the Star mounting, copper plate panel, recess and the blank twelfth point
-  c.rect(310, 96, 90, 110, PAL.stoneDark); c.rect(314, 100, 82, 102, mix(PAL.stoneDark, PAL.ink, 0.35));
+  c.rect(310, 96, 90, FLOOR_Y - 96, PAL.stoneDark); c.rect(314, 100, 82, FLOOR_Y - 104, mix(PAL.stoneDark, PAL.ink, 0.35));
   christmasStar(c, 330, 140, 22, { glows: g });
   c.rect(372, 120, 44, 56, PAL.copper).frame(372, 120, 44, 56, PAL.woodDark);
   for (let k = 0; k < 12; k++) c.rect(376 + (k % 4) * 10, 126 + ((k / 4) | 0) * 16, 7, 11, k === 11 ? PAL.ink : PAL.copperHi);
@@ -502,8 +539,8 @@ const INTERIOR = {
   bakery: { shell: { wall: '#4a3a2c', paper: '#5a4636', wain: '#7a5a3c', floor: '#6a4a32' }, furnish: furnishBakery },
   police: { shell: { wall: '#2a3a4a', paper: '#34485a', wain: PAL.stoneDark, floor: '#343a4e', trim: PAL.stone }, furnish: furnishPolice },
   home: { shell: { wall: '#2a2030', paper: '#40304a', wain: '#4a3a3a', floor: '#3a2c2a' }, furnish: furnishHome },
-  archive: { shell: { wall: '#3a3c58', stone: true, wain: PAL.stoneDark, floor: '#2a2c44', trim: PAL.stone }, furnish: furnishArchive },
-  tower: { shell: { wall: '#2e3250', stone: true, wain: PAL.stoneDark, floor: '#24283e', trim: PAL.stone }, furnish: furnishTower },
+  archive: { shell: { wall: '#3a3c58', stone: true, wain: PAL.stoneDark, floor: '#2a2c44', trim: PAL.stone, ceiling: false }, furnish: furnishArchive },
+  tower: { shell: { wall: '#2e3250', stone: true, wain: PAL.stoneDark, floor: '#24283e', trim: PAL.stone, ceiling: false }, furnish: furnishTower },
 };
 
 export function renderLocation(id) {
